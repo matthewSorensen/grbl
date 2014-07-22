@@ -2,25 +2,31 @@
   planner.c - buffers movement commands and manages the acceleration profile plan
   Part of Grbl
 
+  The MIT License (MIT)
+
+  GRBL(tm) - Embedded CNC g-code interpreter and motion-controller
   Copyright (c) 2009-2011 Simen Svale Skogsrud
   Copyright (c) 2011-2012 Sungeun K. Jeon
-  Copyright (c) 2011 Jens Geisler  
-  
-  Grbl is free software: you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation, either version 3 of the License, or
-  (at your option) any later version.
+  Copyright (c) 2011 Jens Geisler
 
-  Grbl is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
 
-  You should have received a copy of the GNU General Public License
-  along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+  THE SOFTWARE.
 */
-
-/* The ring buffer implementation gleaned from the wiring_serial library by David A. Mellis. */
 
 #include <inttypes.h>    
 #include <stdlib.h>
@@ -393,7 +399,7 @@ void plan_buffer_line(float x, float y, float z, float feed_rate, uint8_t invert
   // average travel per step event changes. For a line along one axis the travel per step event
   // is equal to the travel/step in the particular axis. For a 45 degree line the steppers of both
   // axes might step for every step event. Travel per step event is then sqrt(travel_x^2+travel_y^2).
-  // To generate trapezoids with contant acceleration between blocks the rate_delta must be computed 
+  // To generate trapezoids with constant acceleration between blocks the rate_delta must be computed 
   // specifically for each line to compensate for this phenomenon:
   // Convert universal acceleration for direction-dependent stepper rate change parameter
   block->rate_delta = ceil( block->step_event_count*inverse_millimeters *  

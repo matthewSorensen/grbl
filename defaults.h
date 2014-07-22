@@ -1,23 +1,30 @@
 /*
   defaults.h - defaults settings configuration file
   Part of Grbl
+  
+  The MIT License (MIT)
 
+  GRBL(tm) - Embedded CNC g-code interpreter and motion-controller
   Copyright (c) 2012 Sungeun K. Jeon
 
-  Grbl is free software: you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation, either version 3 of the License, or
-  (at your option) any later version.
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
 
-  Grbl is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
 
-  You should have received a copy of the GNU General Public License
-  along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+  THE SOFTWARE.
 */
-
 /* The defaults.h file serves as a central default settings file for different machine
    types, from DIY CNC mills to CNC conversions of off-the-shelf machines. The settings
    here are supplied by users, so your results may vary. However, this should give you
@@ -36,7 +43,7 @@
   #define DEFAULT_MM_PER_ARC_SEGMENT 0.1
   #define DEFAULT_RAPID_FEEDRATE 500.0 // mm/min
   #define DEFAULT_FEEDRATE 250.0
-  #define DEFAULT_ACCELERATION (10.0*60*60) // 10 mm/min^2
+  #define DEFAULT_ACCELERATION (10.0*60*60) // 10*60*60 mm/min^2 = 10 mm/s^2
   #define DEFAULT_JUNCTION_DEVIATION 0.05 // mm
   #define DEFAULT_STEPPING_INVERT_MASK 0
   #define DEFAULT_REPORT_INCHES 0 // false
@@ -67,7 +74,7 @@
   #define DEFAULT_MM_PER_ARC_SEGMENT 0.1
   #define DEFAULT_RAPID_FEEDRATE 635.0 // mm/min (25ipm)
   #define DEFAULT_FEEDRATE 254.0 // mm/min (10ipm)
-  #define DEFAULT_ACCELERATION 50.0*60*60 // 50 mm/min^2
+  #define DEFAULT_ACCELERATION 50.0*60*60 // 50*60*60 mm/min^2 = 50 mm/s^2
   #define DEFAULT_JUNCTION_DEVIATION 0.05 // mm
   #define DEFAULT_STEPPING_INVERT_MASK (DIR_Y_BIT|DIR_Z_BIT)
   #define DEFAULT_REPORT_INCHES 1 // false
@@ -101,7 +108,7 @@
   #define DEFAULT_MM_PER_ARC_SEGMENT 0.1
   #define DEFAULT_RAPID_FEEDRATE 1000.0 // mm/min
   #define DEFAULT_FEEDRATE 250.0
-  #define DEFAULT_ACCELERATION (15.0*60*60) // 15 mm/min^2
+  #define DEFAULT_ACCELERATION (15.0*60*60) // 15*60*60 mm/min^2 = 15 mm/s^2
   #define DEFAULT_JUNCTION_DEVIATION 0.05 // mm
   #define DEFAULT_STEPPING_INVERT_MASK (DIR_Y_BIT|DIR_Z_BIT)
   #define DEFAULT_REPORT_INCHES 0 // false
@@ -131,11 +138,11 @@
   #define DEFAULT_X_STEPS_PER_MM (MICROSTEPS_XY*STEP_REVS_XY/MM_PER_REV_XY)
   #define DEFAULT_Y_STEPS_PER_MM (MICROSTEPS_XY*STEP_REVS_XY/MM_PER_REV_XY)
   #define DEFAULT_Z_STEPS_PER_MM (MICROSTEPS_Z*STEP_REVS_Z/MM_PER_REV_Z)
-  #define DEFAULT_STEP_PULSE_MICROSECONDS 10
+  #define DEFAULT_STEP_PULSE_MICROSECONDS 30
   #define DEFAULT_MM_PER_ARC_SEGMENT 0.1
-  #define DEFAULT_RAPID_FEEDRATE 800.0 // mm/min
-  #define DEFAULT_FEEDRATE 250.0
-  #define DEFAULT_ACCELERATION (15.0*60*60) // 15 mm/min^2
+  #define DEFAULT_RAPID_FEEDRATE 500.0 // mm/min
+  #define DEFAULT_FEEDRATE 500.0
+  #define DEFAULT_ACCELERATION (25.0*60*60) // 25*60*60 mm/min^2 = 25 mm/s^2
   #define DEFAULT_JUNCTION_DEVIATION 0.05 // mm
   #define DEFAULT_STEPPING_INVERT_MASK (DIR_Y_BIT|DIR_Z_BIT)
   #define DEFAULT_REPORT_INCHES 0 // false
@@ -153,7 +160,6 @@
   #define DEFAULT_N_ARC_CORRECTION 25
 #endif
 
-
 #ifdef DEFAULTS_ZEN_TOOLWORKS_7x7
   // Description: Zen Toolworks 7x7 mill with three Shinano SST43D2121 65oz-in NEMA 17 stepper motors.
   // Leadscrew is different from some ZTW kits, where most are 1.25mm/rev rather than 8.0mm/rev here.
@@ -168,7 +174,7 @@
   #define DEFAULT_MM_PER_ARC_SEGMENT 0.1
   #define DEFAULT_RAPID_FEEDRATE 2500.0 // mm/min
   #define DEFAULT_FEEDRATE 1000.0 // mm/min
-  #define DEFAULT_ACCELERATION 150.0*60*60 // 150 mm/min^2
+  #define DEFAULT_ACCELERATION 150.0*60*60 // 150*60*60 mm/min^2 = 150 mm/s^2
   #define DEFAULT_JUNCTION_DEVIATION 0.05 // mm
   #define DEFAULT_STEPPING_INVERT_MASK DIR_Y_BIT
   #define DEFAULT_REPORT_INCHES 0 // false
