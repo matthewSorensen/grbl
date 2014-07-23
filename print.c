@@ -2,8 +2,8 @@
   print.c - Functions for formatting output strings
   Part of Grbl
 
-  Copyright (c) 2011-2014 Sungeun K. Jeon
   Copyright (c) 2009-2011 Simen Svale Skogsrud
+  Copyright (c) 2011-2014 Sungeun K. Jeon
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -18,125 +18,89 @@
   You should have received a copy of the GNU General Public License
   along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
 */
-
 #include "system.h"
-#include "serial.h"
+#include "print.h"
+#include "config.h"
 #include "settings.h"
-
+#include <usb_serial.h>
 
 void printString(const char *s)
 {
-  while (*s)
-    serial_write(*s++);
+  uint32_t len = 0;
+  const char* p = s;
+  while(*(p++)) len++;
+  
+  usb_serial_write(s, len);
 }
-
-
-// Print a string stored in PGM-memory
-void printPgmString(const char *s)
-{
-  char c;
-  while ((c = pgm_read_byte_near(s++)))
-    serial_write(c);
-}
-
-
-// void printIntegerInBase(unsigned long n, unsigned long base)
-// { 
-// 	unsigned char buf[8 * sizeof(long)]; // Assumes 8-bit chars. 
-// 	unsigned long i = 0;
-// 
-// 	if (n == 0) {
-// 		serial_write('0');
-// 		return;
-// 	} 
-// 
-// 	while (n > 0) {
-// 		buf[i++] = n % base;
-// 		n /= base;
-// 	}
-// 
-// 	for (; i > 0; i--)
-// 		serial_write(buf[i - 1] < 10 ?
-// 			'0' + buf[i - 1] :
-// 			'A' + buf[i - 1] - 10);
-// }
-
 
 void print_uint8_base2(uint8_t n)
 { 
 	unsigned char buf[8];
 	uint8_t i = 0;
-
+	
 	for (; i < 8; i++) {
-		buf[i] = n & 1;
-		n >>= 1;
+	  buf[i] = (n & 1) + '0';
+	  n >>= 1;
 	}
-
-	for (; i > 0; i--)
-		serial_write('0' + buf[i - 1]);
+	usb_serial_write(buf, 8);
 }
-
 
 void print_uint8_base10(uint8_t n)
 { 
   if (n == 0) {
-    serial_write('0');
+    usb_serial_putchar('0');
     return;
   } 
-
+  
   unsigned char buf[3];
   uint8_t i = 0;
-
-  while (n > 0) {
-      buf[i++] = n % 10 + '0';
-      n /= 10;
-  }
-
-  for (; i > 0; i--)
-      serial_write(buf[i - 1]);
-}
-
-
-void print_uint32_base10(unsigned long n)
-{ 
-  if (n == 0) {
-    serial_write('0');
-    return;
-  } 
-
-  unsigned char buf[10]; 
-  uint8_t i = 0;  
   
   while (n > 0) {
-    buf[i++] = n % 10;
+    buf[i++] = n % 10 + '0';
+      n /= 10;
+  }
+  
+  for (; i > 0; i--)
+    usb_serial_putchar(buf[i-1]);
+}
+
+void print_uint32_base10(uint32_t n)
+{ 
+  unsigned char buf[10]; 
+  uint8_t i = 0;
+  
+  if (n == 0) {
+    usb_serial_putchar('0');
+    return;
+  } 
+  
+  while (n > 0) {
+    buf[i++] = n % 10 + '0';
     n /= 10;
   }
     
   for (; i > 0; i--)
-    serial_write('0' + buf[i-1]);
+    usb_serial_putchar(buf[i-1]);
 }
-
 
 void printInteger(long n)
 {
   if (n < 0) {
-    serial_write('-');
-    print_uint32_base10((-n));
-  } else {
-    print_uint32_base10(n);
+    usb_serial_putchar('-');
+    n = -n;
   }
+  print_uint32_base10(n);
 }
-
 
 // Convert float to string by immediately converting to a long integer, which contains
 // more digits than a float. Number of decimal places, which are tracked by a counter,
 // may be set by the user. The integer is then efficiently converted to a string.
 // NOTE: AVR '%' and '/' integer operations are very efficient. Bitshifting speed-up 
 // techniques are actually just slightly slower. Found this out the hard way.
-void printFloat(float n, uint8_t decimal_places)
+void printFloat(float n,uint32_t decimal_places)
 {
   if (n < 0) {
-    serial_write('-');
+    usb_serial_putchar('-');
     n = -n;
   }
 
@@ -168,9 +132,8 @@ void printFloat(float n, uint8_t decimal_places)
   
   // Print the generated string.
   for (; i > 0; i--)
-    serial_write(buf[i-1]);
+    usb_serial_putchar(buf[i-1]);
 }
-
 
 // Floating value printing handlers for special variables types used in Grbl and are defined
 // in the config.h.
@@ -180,7 +143,7 @@ void printFloat(float n, uint8_t decimal_places)
 void printFloat_CoordValue(float n) { 
   if (bit_istrue(settings.flags,BITFLAG_REPORT_INCHES)) { 
     printFloat(n*INCH_PER_MM,N_DECIMAL_COORDVALUE_INCH);
-  } else {
+   } else {
     printFloat(n,N_DECIMAL_COORDVALUE_MM);
   }
 }
@@ -195,13 +158,12 @@ void printFloat_RateValue(float n) {
 
 void printFloat_SettingValue(float n) { printFloat(n,N_DECIMAL_SETTINGVALUE); }
 
-
 // Debug tool to print free memory in bytes at the called point. Not used otherwise.
 void printFreeMemory()
 {
-  extern int __heap_start, *__brkval; 
-  uint16_t free;  // Up to 64k values.
-  free = (int) &free - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
-  printInteger((int32_t)free);
+// extern int __heap_start, *__brkval; 
+// uint16_t free;  // Up to 64k values.
+// free = (int) &free - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
+  printInteger((int32_t)0);
   printString(" ");
 }

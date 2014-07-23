@@ -28,8 +28,6 @@
 
 void printString(const char *s);
 
-void printPgmString(const char *s);
-
 void printInteger(long n);
 
 void print_uint32_base10(uint32_t n);
@@ -38,7 +36,7 @@ void print_uint8_base2(uint8_t n);
 
 void print_uint8_base10(uint8_t n);
 
-void printFloat(float n, uint8_t decimal_places);
+void printFloat(float n, uint32_t decimal_places);
 
 // Floating value printing handlers for special variables types used in Grbl. 
 //  - CoordValue: Handles all position or coordinate values in inches or mm reporting.

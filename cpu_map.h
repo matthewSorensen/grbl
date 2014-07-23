@@ -119,8 +119,12 @@
   #define PIN_CYCLE_START  19
   #define PINOUT_MASK ((1<<PIN_RESET)|(1<<PIN_FEED_HOLD)|(1<<PIN_CYCLE_START))
 
-  // Note the lack of variable spindle or probe support. Fix that.
+  #define PIN_RESET_CTRL PORTB_PCR16
+  #define PIN_FEED_CTRL  PORTB_PCR17
+  #define PIN_CYCLE_CTRL PORTB_PCR19
 
+  // Note the lack of variable spindle or probe support. Fix that.
+  // Also, no software debouncing on inputs.
 #endif
 
 //----------------------------------------------------------------------------------------

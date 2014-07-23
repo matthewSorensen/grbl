@@ -25,34 +25,34 @@
 #include "report.h"
 #include "print.h"
 
+void system_init(){
+  uint32_t config_reg = PULL_UP | MUX_GPIO | IRQC_FALLING;
 
-void system_init() 
-{
   PINOUT_DDR &= ~(PINOUT_MASK); // Configure as input pins
-  PINOUT_PORT |= PINOUT_MASK;   // Enable internal pull-up resistors. Normal high operation.
-  PINOUT_PCMSK |= PINOUT_MASK;  // Enable specific pins of the Pin Change Interrupt
-  PCICR |= (1 << PINOUT_INT);   // Enable Pin Change Interrupt
-}
 
+  PIN_RESET_CTRL = config_reg;
+  PIN_FEED_CTRL = config_reg;
+  PIN_CYCLE_CTRL = config_reg;
+}
 
 // Pin change interrupt for pin-out commands, i.e. cycle start, feed hold, and reset. Sets
 // only the runtime command execute variable to have the main program execute these when 
 // its ready. This works exactly like the character-based runtime commands when picked off
-// directly from the incoming serial data stream.
-ISR(PINOUT_INT_vect) 
-{
-  // Enter only if any pinout pin is actively low.
-  if ((PINOUT_PIN & PINOUT_MASK) ^ PINOUT_MASK) { 
-    if (bit_isfalse(PINOUT_PIN,bit(PIN_RESET))) {
-      mc_reset();
-    } else if (bit_isfalse(PINOUT_PIN,bit(PIN_FEED_HOLD))) {
-      bit_true(sys.execute, EXEC_FEED_HOLD); 
-    } else if (bit_isfalse(PINOUT_PIN,bit(PIN_CYCLE_START))) {
-      bit_true(sys.execute, EXEC_CYCLE_START);
-    } 
+// directly from the incoming serial data stream. Called from the port b ISR in limits.c.
+void system_io_isr(){
+  if(PIN_RESET_CTRL & ISF){
+    PIN_RESET_CTRL |= ISF;
+    mc_reset();
+  }
+  if(PIN_FEED_CTRL & ISF){
+    PIN_FEED_CTRL |= ISF;
+    bit_true(sys.execute, EXEC_FEED_HOLD); 
+  }
+  if(PIN_CYCLE_CTRL & ISF){
+    PIN_CYCLE_CTRL |= ISF;
+    bit_true(sys.execute, EXEC_CYCLE_START);
   }
 }
-
 
 // Executes user startup script, if stored.
 void system_execute_startup(char *line) 

@@ -22,24 +22,27 @@
 #define system_h
 
 // Define system header files and standard libraries used by Grbl
-#include <avr/io.h>
-#include <avr/pgmspace.h>
-#include <avr/interrupt.h>
-#include <avr/wdt.h>
-#include <util/delay.h>
+#include <util.h>
 #include <math.h>
 #include <inttypes.h>    
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-
+#include <pin_config.h>
+#include <mk20dx128.h>
 // Define Grbl configuration and shared header files
 #include "config.h"
 #include "defaults.h"
 #include "cpu_map.h"
 #include "nuts_bolts.h"
 
+// Configure IO for commands.
+void system_init();
+
+// As the limit and command IO is on the same port, a function
+// to handle system IO from the limit ISR must exist.
+void system_io_isr();
 
 // Define system executor bit map. Used internally by runtime protocol as runtime command flags, 
 // which notifies the main program to execute the specified runtime command asynchronously.
@@ -81,10 +84,6 @@ typedef struct {
   int32_t probe_position[N_AXIS]; // Last probe position in machine coordinates and steps.
 } system_t;
 extern system_t sys;
-
-
-// Initialize the serial protocol
-void system_init();
 
 // Executes an internal system command, defined as a string starting with a '$'
 uint8_t system_execute_line(char *line);

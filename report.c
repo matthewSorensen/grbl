@@ -35,8 +35,10 @@
 #include "planner.h"
 #include "spindle_control.h"
 #include "stepper.h"
-#include "serial.h"
+#include <usb_serial.h>
 
+#define PSTR(x) x
+#define printPgmString(x) usb_serial_write(x,sizeof(x) - 1)
 
 // Handles the primary confirmation protocol response for streaming interfaces and human-feedback.
 // For every incoming line, this method responds with an 'ok' for a successful command or an 
@@ -105,7 +107,7 @@ void report_alarm_message(int8_t alarm_code)
     printPgmString(PSTR("Probe fail")); break;
   }
   printPgmString(PSTR("\r\n"));
-  delay_ms(500); // Force delay to ensure message clears serial write buffer.
+  usb_serial_flush_output();
 }
 
 // Prints feedback messages. This serves as a centralized method to provide additional

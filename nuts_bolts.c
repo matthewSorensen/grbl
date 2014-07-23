@@ -111,9 +111,11 @@ uint8_t read_float(char *line, uint8_t *char_counter, float *float_ptr)
 
 // Delays variable defined milliseconds. Compiler compatibility fix for _delay_ms(),
 // which only accepts constants in future compiler releases.
+// Note that the teensy implementation MUST NOT be used in an ISR, or
+// the delay will hang forever.
 void delay_ms(uint16_t ms) 
 {
-  while ( ms-- ) { _delay_ms(1); }
+  delay(ms);
 }
 
 
@@ -122,21 +124,8 @@ void delay_ms(uint16_t ms)
 // efficiently with larger delays, as the counter adds parasitic time in each iteration.
 void delay_us(uint32_t us) 
 {
-  while (us) {
-    if (us < 10) { 
-      _delay_us(1);
-      us--;
-    } else if (us < 100) {
-      _delay_us(10);
-      us -= 10;
-    } else if (us < 1000) {
-      _delay_us(100);
-      us -= 100;
-    } else {
-      _delay_ms(1);
-      us -= 1000;
-    }
-  }
+  // In teensy land, this works quite well.
+  delay_microseconds(us);
 }
 
 

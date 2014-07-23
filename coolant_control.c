@@ -29,16 +29,18 @@ void coolant_init()
   COOLANT_FLOOD_DDR |= (1 << COOLANT_FLOOD_BIT);
   #ifdef ENABLE_M7
     COOLANT_MIST_DDR |= (1 << COOLANT_MIST_BIT);
+    COOLANT_MIST_CTRL = STANDARD_OUTPUT;
   #endif
+  COOLANT_FLOOD_CTRL = STANDARD_OUTPUT;
   coolant_stop();
 }
 
 
 void coolant_stop()
 {
-  COOLANT_FLOOD_PORT &= ~(1 << COOLANT_FLOOD_BIT);
+  COOLANT_FLOOD_PORT(COR) = (1 << COOLANT_FLOOD_BIT);
   #ifdef ENABLE_M7
-    COOLANT_MIST_PORT &= ~(1 << COOLANT_MIST_BIT);
+    COOLANT_MIST_PORT(COR) = (1 << COOLANT_MIST_BIT);
   #endif
 }
 
@@ -50,11 +52,11 @@ void coolant_run(uint8_t mode)
   protocol_auto_cycle_start();   //temp fix for M8 lockup
   protocol_buffer_synchronize(); // Ensure coolant turns on when specified in program.
   if (mode == COOLANT_FLOOD_ENABLE) {
-    COOLANT_FLOOD_PORT |= (1 << COOLANT_FLOOD_BIT);
+    COOLANT_FLOOD_PORT(SOR) = (1 << COOLANT_FLOOD_BIT);
 
   #ifdef ENABLE_M7  
     } else if (mode == COOLANT_MIST_ENABLE) {
-      COOLANT_MIST_PORT |= (1 << COOLANT_MIST_BIT);
+      COOLANT_MIST_PORT(SOR) = (1 << COOLANT_MIST_BIT);
   #endif
 
   } else {
