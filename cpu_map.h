@@ -88,6 +88,7 @@
  
 
   // Define spindle enable and spindle direction output pins.
+  // Note that this does have an FTM channel (ftm1 ch0), so it will support.
   #define SPINDLE_ENABLE_DDR    GPIOA_PDDR
   #define SPINDLE_ENABLE_PORT(reg)   GPIOA_P##reg
   #define SPINDLE_ENABLE_BIT    12
@@ -127,8 +128,15 @@
   #define PIN_FEED_CTRL  PORTB_PCR17
   #define PIN_CYCLE_CTRL PORTB_PCR19
 
-  // Note the lack of variable spindle or probe support. Fix that.
+  // Note the lack of variable spindle. Fix that.
   // Also, no software debouncing on inputs.
+  // Define probe switch input pin.
+  #define PROBE_DDR       GPIOA_PDDR
+  #define PROBE_PORT(reg) GPIOA_P##reg
+  #define PROBE_BIT       5 // Teensy 3.x pin 24
+  #define PROBE_MASK      (1<<PROBE_BIT)
+  #define PROBE_CTRL      PORTA_PCR5
+
 #endif
 
 //----------------------------------------------------------------------------------------
