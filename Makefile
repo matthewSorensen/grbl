@@ -39,7 +39,7 @@ AS = $(COMPILER)/arm-none-eabi-as
 
 OBJECTS    = main.o motion_control.o gcode.o spindle_control.o coolant_control.o serial.o \
              protocol.o stepper.o eeprom.o settings.o planner.o nuts_bolts.o limits.o \
-             print.o probe.o report.o system.o
+             print.o probe.o report.o system.o atomics.o
 
 VENDOR_C = $(wildcard vendor/*.c)
 VENDOR_OBJECTS = $(patsubst %.c,%.o,$(VENDOR_C))

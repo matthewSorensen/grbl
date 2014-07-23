@@ -32,7 +32,7 @@
 #include "limits.h"
 #include "probe.h"
 #include "report.h"
-
+#include <flexram.h>
 
 // Declare system global variable structure
 system_t sys; 
@@ -40,15 +40,14 @@ system_t sys;
 
 int main(void)
 {
+  initialize_flexram();
   // Initialize system upon power-up.
-  serial_init();   // Setup serial baud rate and interrupts
   settings_init(); // Load grbl settings from EEPROM
   stepper_init();  // Configure stepper pins and interrupt timers
   system_init();   // Configure pinout pins and pin-change interrupt
   
   memset(&sys, 0, sizeof(sys));  // Clear all system variables
   sys.abort = true;   // Set abort to complete initialization
-  sei(); // Enable interrupts
 
   // Check for power-up and set system alarm if homing is enabled to force homing cycle
   // by setting Grbl's alarm state. Alarm locks out all g-code commands, including the

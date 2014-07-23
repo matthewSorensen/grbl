@@ -36,6 +36,7 @@
 #include "defaults.h"
 #include "cpu_map.h"
 #include "nuts_bolts.h"
+#include "atomics.h"
 
 // Configure IO for commands.
 void system_init();
@@ -73,9 +74,9 @@ void system_io_isr();
 
 // Define global system variables
 typedef struct {
+  volatile uint32_t execute;      // Global system runtime executor bitflag variable. See EXEC bitmasks.
   uint8_t abort;                 // System abort flag. Forces exit back to main loop for reset.
   uint8_t state;                 // Tracks the current state of Grbl.
-  volatile uint8_t execute;      // Global system runtime executor bitflag variable. See EXEC bitmasks.
   uint8_t homing_axis_lock;
   int32_t position[N_AXIS];      // Real-time machine (aka home) position vector in steps. 
                                  // NOTE: This may need to be a volatile variable, if problems arise.                             
