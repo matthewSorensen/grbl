@@ -30,6 +30,7 @@
 #include "system.h"
 
 
+
 // Default settings. Used when resetting EEPROM. Change to desired name in defaults.h
 #define DEFAULTS_GENERIC
 
@@ -38,7 +39,7 @@
 
 // Default cpu mappings. Grbl officially supports the Arduino Uno only. Other processor types
 // may exist from user-supplied templates or directly user-defined in cpu_map.h
-#define CPU_MAP_ATMEGA328P // Arduino Uno CPU
+#define CPU_MAP_MK20
 
 // Define runtime command special characters. These characters are 'picked-off' directly from the
 // serial read data stream and are not passed to the grbl line execution parser. Select characters
