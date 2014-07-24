@@ -32,7 +32,7 @@
 #include "limits.h"
 #include "probe.h"
 #include "report.h"
-#include <flexram.h>
+#include "eeprom.h"
 #include <usb_serial.h>
 // Declare system global variable structure
 system_t sys; 
@@ -40,7 +40,7 @@ system_t sys;
 
 int main(void)
 {
-  initialize_flexram();
+  initialize_eeprom();
   // Initialize system upon power-up.
   settings_init(); // Load grbl settings from EEPROM
   stepper_init();  // Configure stepper pins and interrupt timers

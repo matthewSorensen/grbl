@@ -25,7 +25,7 @@
 #include "report.h"
 #include "limits.h"
 #include "stepper.h"
-#include <flexram.h>
+#include "eeprom.h"
 
 settings_t settings;
 

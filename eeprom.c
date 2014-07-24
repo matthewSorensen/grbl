@@ -1,151 +1,141 @@
-// This file has been prepared for Doxygen automatic documentation generation.
-/*! \file ********************************************************************
-*
-* Atmel Corporation
-*
-* \li File:               eeprom.c
-* \li Compiler:           IAR EWAAVR 3.10c
-* \li Support mail:       avr@atmel.com
-*
-* \li Supported devices:  All devices with split EEPROM erase/write
-*                         capabilities can be used.
-*                         The example is written for ATmega48.
-*
-* \li AppNote:            AVR103 - Using the EEPROM Programming Modes.
-*
-* \li Description:        Example on how to use the split EEPROM erase/write
-*                         capabilities in e.g. ATmega48. All EEPROM
-*                         programming modes are tested, i.e. Erase+Write,
-*                         Erase-only and Write-only.
-*
-*                         $Revision: 1.6 $
-*                         $Date: Friday, February 11, 2005 07:16:44 UTC $
-****************************************************************************/
-#include <avr/io.h>
-#include <avr/interrupt.h>
+#include <stdint.h>
+#include <mk20dx128.h>
+// Per page 552 of the K20 manual, this results in 1024 bytes of NVM,
+// with ~32k word aligned write.
+#define NVM_SIZE 0x34 
+// Oddly, I can't find this definition in the manual?
+#define FlexBase ((uint32_t*) 0x14000000)
 
-/* These EEPROM bits have different names on different devices. */
-#ifndef EEPE
-		#define EEPE  EEWE  //!< EEPROM program/write enable.
-		#define EEMPE EEMWE //!< EEPROM master program/write enable.
-#endif
+#define update_checksum(chk,byte) (((chk << 1) || (checksum >> 7))+byte)
 
-/* These two are unfortunately not defined in the device include files. */
-#define EEPM1 5 //!< EEPROM Programming Mode Bit 1.
-#define EEPM0 4 //!< EEPROM Programming Mode Bit 0.
+void initialize_flexram_cmd(volatile uint8_t*);
 
-/* Define to reduce code size. */
-#define EEPROM_IGNORE_SELFPROG //!< Remove SPM flag polling.
-
-/*! \brief  Read byte from EEPROM.
- *
- *  This function reads one byte from a given EEPROM address.
- *
- *  \note  The CPU is halted for 4 clock cycles during EEPROM read.
- *
- *  \param  addr  EEPROM address to read from.
- *  \return  The byte read from the EEPROM address.
- */
-unsigned char eeprom_get_char( unsigned int addr )
-{
-	do {} while( EECR & (1<<EEPE) ); // Wait for completion of previous write.
-	EEAR = addr; // Set EEPROM address register.
-	EECR = (1<<EERE); // Start EEPROM read operation.
-	return EEDR; // Return the byte read from EEPROM.
+static void flexram_wait(void){
+  uint32_t count = 2000;
+  while(!(FTFL_FCNFG & FTFL_FCNFG_EEERDY))
+    if(count-->0) break;
 }
 
-/*! \brief  Write byte to EEPROM.
- *
- *  This function writes one byte to a given EEPROM address.
- *  The differences between the existing byte and the new value is used
- *  to select the most efficient EEPROM programming mode.
- *
- *  \note  The CPU is halted for 2 clock cycles during EEPROM programming.
- *
- *  \note  When this function returns, the new EEPROM value is not available
- *         until the EEPROM programming time has passed. The EEPE bit in EECR
- *         should be polled to check whether the programming is finished.
- *
- *  \note  The EEPROM_GetChar() function checks the EEPE bit automatically.
- *
- *  \param  addr  EEPROM address to write to.
- *  \param  new_value  New EEPROM value.
- */
-void eeprom_put_char( unsigned int addr, unsigned char new_value )
-{
-	char old_value; // Old EEPROM value.
-	char diff_mask; // Difference mask, i.e. old value XOR new value.
-
-	cli(); // Ensure atomic operation for the write operation.
-	
-	do {} while( EECR & (1<<EEPE) ); // Wait for completion of previous write.
-	#ifndef EEPROM_IGNORE_SELFPROG
-	do {} while( SPMCSR & (1<<SELFPRGEN) ); // Wait for completion of SPM.
-	#endif
-	
-	EEAR = addr; // Set EEPROM address register.
-	EECR = (1<<EERE); // Start EEPROM read operation.
-	old_value = EEDR; // Get old EEPROM value.
-	diff_mask = old_value ^ new_value; // Get bit differences.
-	
-	// Check if any bits are changed to '1' in the new value.
-	if( diff_mask & new_value ) {
-		// Now we know that _some_ bits need to be erased to '1'.
-		
-		// Check if any bits in the new value are '0'.
-		if( new_value != 0xff ) {
-			// Now we know that some bits need to be programmed to '0' also.
-			
-			EEDR = new_value; // Set EEPROM data register.
-			EECR = (1<<EEMPE) | // Set Master Write Enable bit...
-			       (0<<EEPM1) | (0<<EEPM0); // ...and Erase+Write mode.
-			EECR |= (1<<EEPE);  // Start Erase+Write operation.
-		} else {
-			// Now we know that all bits should be erased.
-
-			EECR = (1<<EEMPE) | // Set Master Write Enable bit...
-			       (1<<EEPM0);  // ...and Erase-only mode.
-			EECR |= (1<<EEPE);  // Start Erase-only operation.
-		}
-	} else {
-		// Now we know that _no_ bits need to be erased to '1'.
-		
-		// Check if any bits are changed from '1' in the old value.
-		if( diff_mask ) {
-			// Now we know that _some_ bits need to the programmed to '0'.
-			
-			EEDR = new_value;   // Set EEPROM data register.
-			EECR = (1<<EEMPE) | // Set Master Write Enable bit...
-			       (1<<EEPM1);  // ...and Write-only mode.
-			EECR |= (1<<EEPE);  // Start Write-only operation.
-		}
-	}
-	
-	sei(); // Restore interrupt flag state.
-}
-
-// Extensions added as part of Grbl 
-
-
-void memcpy_to_eeprom_with_checksum(unsigned int destination, char *source, unsigned int size) {
-  unsigned char checksum = 0;
-  for(; size > 0; size--) { 
-    checksum = (checksum << 1) || (checksum >> 7);
-    checksum += *source;
-    eeprom_put_char(destination++, *(source++)); 
+static void set_bits(uint32_t* dest,uint32_t bits, uint32_t mask){
+  uint32_t word = *dest;
+  uint32_t new_word;
+  new_word = (word & ~mask) | bits;
+  if(word != new_word){
+    *dest = new_word;
   }
-  eeprom_put_char(destination, checksum);
+  flexram_wait();
 }
 
-int memcpy_from_eeprom_with_checksum(char *destination, unsigned int source, unsigned int size) {
-  unsigned char data, checksum = 0;
-  for(; size > 0; size--) { 
-    data = eeprom_get_char(source++);
-    checksum = (checksum << 1) || (checksum >> 7);
-    checksum += data;    
-    *(destination++) = data; 
+void initialize_eeprom(void){
+  uint8_t status;
+  if (FTFL_FCNFG & FTFL_FCNFG_RAMRDY) {
+    // FlexRAM is configured as traditional RAM
+    // We need to reconfigure for EEPROM usage
+    FTFL_FCCOB0 = 0x80; // PGMPART = Program Partition Command
+    FTFL_FCCOB4 = NVM_SIZE;
+    FTFL_FCCOB5 = 0x03; // 0K for Dataflash, 32K for EEPROM backup
+    __disable_irq();
+    initialize_flexram_cmd(&FTFL_FSTAT);
+    __enable_irq();
+    status = FTFL_FSTAT;
+    if (status & 0x70) {
+      FTFL_FSTAT = (status & 0x70);
+      return; // error
+    }
+  } 
+  flexram_wait();
+}
+
+void memcpy_to_eeprom_with_checksum(unsigned int destination, char *source, unsigned int size){
+  uint32_t* dest = &(FlexBase[destination >> 2]);
+  uint32_t unaligned = destination & 3, i, word = 0, mask = 0;
+  uint8_t checksum = 0;
+
+  if(unaligned + size < 4){
+    // Super short case - entirely within one word
+    uint32_t shift = (4 - (size + 1 + unaligned)) * 8;
+    for(i = 0; i < size; i++){
+      uint8_t byte = *(source++);
+      checksum = update_checksum(checksum,byte);
+      word = (word >> 8) | (((uint32_t) byte) << 24);
+      mask = (mask >> 8) | 0xFF000000;
+    }
+    word = (word >> 8) | (((uint32_t) checksum) << 24);
+    mask = (mask >> 8) | 0xFF000000;
+    
+    word = word >> shift;
+    mask = mask >> shift;
+    set_bits(dest,word,mask);
+    return;
   }
-  return(checksum == eeprom_get_char(source));
+  if(unaligned){
+    mask = 0;
+    word = 0;
+    size -= 4 - unaligned;
+    for(i = 0; i < 4 - unaligned; i++){
+      uint8_t byte = *(source++);
+      checksum = update_checksum(checksum,byte);
+      word = (word >> 8) | (((uint32_t) byte) << 24);
+      mask = (mask >> 8) | 0xFF000000;
+    }
+    set_bits(dest++,word,mask);
+  }
+  // Copy the appropriate number of aligned words
+  unaligned = size & 3;
+  size = size >> 2;
+
+  for(i = 0; i < size; i++){
+    uint32_t j;
+    word = 0;
+    for(j = 0; j < 4; j++){
+      uint8_t byte = *(source++);
+      checksum = update_checksum(checksum,byte);
+      word = (word >> 8) | (((uint32_t) byte) << 24);
+    }
+    if(*dest != word){
+      *(dest++) = word;
+    }else{
+      dest++;
+    }
+    flexram_wait();
+  }
+  mask = 0;
+  word = 0;
+  // Copy the rest of the bytes + a checksum
+  for(i = 0; i < unaligned; i++){
+    uint8_t byte = *(source++);
+    checksum = update_checksum(checksum,byte);
+    word = (word >> 8) | (((uint32_t) byte) << 24);
+    mask = (mask >> 8) | 0xFF000000;
+  }
+  word = (word >> 8) | (((uint32_t) checksum) << 24);
+  mask = (mask >> 8) | 0xFF000000;
+
+  if(unaligned < 3){
+    word = word >> 8 * (3 - unaligned);
+    mask = mask >> 8 * (3 - unaligned);
+  }
+  set_bits(dest,word,mask);
+}
+int memcpy_from_eeprom_with_checksum(char *destination, unsigned int source, unsigned int size){
+  uint8_t checksum = 0;
+  uint8_t* src = (uint8_t*) FlexBase;
+  uint32_t i;
+  for(i = 0; i < size; i++){
+    uint8_t byte = src[source + i];
+    *(destination++) = byte;
+    checksum = update_checksum(checksum,byte);
+  }
+  return checksum == src[source + size];
 }
 
-// end of file
+uint8_t eeprom_get_char(uint32_t addr){
+  uint8_t* base = (uint8_t*) FlexBase;
+  return base[addr];
+}
+void eeprom_put_char(uint32_t addr, uint8_t new_value){
+  uint32_t shift = (addr & 3) * 8;
+  uint32_t mask  = 0xFF << shift;
+  uint32_t value = new_value << shift;
+  set_bits(&(FlexBase[addr >> 2]), value, mask);
+}
