@@ -143,6 +143,24 @@ typedef struct {
 } st_prep_t;
 static st_prep_t prep;
 
+inline void trigger_pulse(uint32_t);
+
+// Bits in the PIT register:
+#define TIE 2 // Timer interrupt enable
+#define TEN 1 // Timer enable
+enum pulse_status {PULSE_SET, PULSE_RESET};
+
+typedef struct {
+  volatile uint32_t active_bits;
+  uint32_t pulse_length;
+  volatile enum pulse_status step_interrupt_status;
+} pulse_state;
+
+static pulse_state pit1_state;
+
+// Used by the stepper driver interrupt
+volatile uint32_t out_bits;
+
 
 /*    BLOCK VELOCITY PROFILE DEFINITION 
           __________________________
@@ -188,8 +206,9 @@ static st_prep_t prep;
 void st_wake_up() 
 {
   // Enable stepper drivers.
-  if (bit_istrue(settings.flags,BITFLAG_INVERT_ST_ENABLE)) { STEPPERS_DISABLE_PORT |= (1<<STEPPERS_DISABLE_BIT); }
-  else { STEPPERS_DISABLE_PORT &= ~(1<<STEPPERS_DISABLE_BIT); }
+  if (bit_istrue(settings.flags,BITFLAG_INVERT_ST_ENABLE)){
+    STEPPERS_DISABLE_PORT(SOR) = (1<<STEPPERS_DISABLE_BIT);
+  } else { STEPPERS_DISABLE_PORT(COR) = (1<<STEPPERS_DISABLE_BIT); }
 
   if (sys.state & (STATE_CYCLE | STATE_HOMING)){
     // Initialize stepper output bits
@@ -197,18 +216,10 @@ void st_wake_up()
     st.step_outbits = step_port_invert_mask;
     
     // Initialize step pulse timing from settings. Here to ensure updating after re-writing.
-    #ifdef STEP_PULSE_DELAY
-      // Set total step pulse time after direction pin set. Ad hoc computation from oscilloscope.
-      st.step_pulse_time = -(((settings.pulse_microseconds+STEP_PULSE_DELAY-2)*TICKS_PER_MICROSECOND) >> 3);
-      // Set delay between direction pin write and step command.
-      OCR0A = -(((settings.pulse_microseconds)*TICKS_PER_MICROSECOND) >> 3);
-    #else // Normal operation
-      // Set step pulse time. Ad hoc computation from oscilloscope. Uses two's complement.
-      st.step_pulse_time = -(((settings.pulse_microseconds-2)*TICKS_PER_MICROSECOND) >> 3);
-    #endif
+    pit1_state.pulse_length = settings.pulse_microseconds*TICKS_PER_MICROSECOND;
 
-    // Enable Stepper Driver Interrupt
-    TIMSK1 |= (1<<OCIE1A);
+    // Enable Stepper Driver Interrupt 
+    PIT_TCTRL0 |= TIE;
   }
 }
 
@@ -217,8 +228,7 @@ void st_wake_up()
 void st_go_idle() 
 {
   // Disable Stepper Driver Interrupt. Allow Stepper Port Reset Interrupt to finish, if active.
-  TIMSK1 &= ~(1<<OCIE1A); // Disable Timer1 interrupt
-  TCCR1B = (TCCR1B & ~((1<<CS12) | (1<<CS11))) | (1<<CS10); // Reset clock to no prescaling.
+  PIT_TCTRL0 &= ~TIE;
   busy = false;
   
   // Set stepper driver idle state, disabled or enabled, depending on settings and circumstances.
@@ -226,12 +236,12 @@ void st_go_idle()
   if (((settings.stepper_idle_lock_time != 0xff) || bit_istrue(sys.execute,EXEC_ALARM)) && sys.state != STATE_HOMING) {
     // Force stepper dwell to lock axes for a defined amount of time to ensure the axes come to a complete
     // stop and not drift from residual inertial forces at the end of the last movement.
-    delay_ms(settings.stepper_idle_lock_time);
+    delay_microseconds(1000 * settings.stepper_idle_lock_time);
     pin_state = true; // Override. Disable steppers.
   }
   if (bit_istrue(settings.flags,BITFLAG_INVERT_ST_ENABLE)) { pin_state = !pin_state; } // Apply pin invert.
-  if (pin_state) { STEPPERS_DISABLE_PORT |= (1<<STEPPERS_DISABLE_BIT); }
-  else { STEPPERS_DISABLE_PORT &= ~(1<<STEPPERS_DISABLE_BIT); }
+  if (pin_state) { STEPPERS_DISABLE_PORT(SOR) = (1<<STEPPERS_DISABLE_BIT); }
+  else { STEPPERS_DISABLE_PORT(COR) = (1<<STEPPERS_DISABLE_BIT); }
 }
 
 
@@ -283,28 +293,17 @@ void st_go_idle()
 // TODO: Replace direct updating of the int32 position counters in the ISR somehow. Perhaps use smaller
 // int8 variables and update position counters only when a segment completes. This can get complicated 
 // with probing and homing cycles that require true real-time positions.
-ISR(TIMER1_COMPA_vect)
-{        
-// SPINDLE_ENABLE_PORT ^= 1<<SPINDLE_ENABLE_BIT; // Debug: Used to time ISR
+void pit0_isr(void) {
+  PIT_TFLG0 = 1;
+// SPINDLE_ENABLE_PORT(TOR) = 1<<SPINDLE_ENABLE_BIT; // Debug: Used to time ISR
   if (busy) { return; } // The busy-flag is used to avoid reentering this interrupt
   
   // Set the direction pins a couple of nanoseconds before we step the steppers
-  DIRECTION_PORT = (DIRECTION_PORT & ~DIRECTION_MASK) | (st.dir_outbits & DIRECTION_MASK);
-
-  // Then pulse the stepping pins
-  #ifdef STEP_PULSE_DELAY
-    st.step_bits = (STEP_PORT & ~STEP_MASK) | st.step_outbits; // Store out_bits to prevent overwriting.
-  #else  // Normal operation
-    STEP_PORT = (STEP_PORT & ~STEP_MASK) | st.step_outbits;
-  #endif  
-
-  // Enable step pulse reset timer so that The Stepper Port Reset Interrupt can reset the signal after
-  // exactly settings.pulse_microseconds microseconds, independent of the main Timer1 prescaler.
-  TCNT0 = st.step_pulse_time; // Reload Timer0 counter
-  TCCR0B = (1<<CS01); // Begin Timer0. Full speed, 1/8 prescaler
+  DIRECTION_PORT(DOR) = (DIRECTION_PORT(DOR) & ~DIRECTION_MASK) | (st.dir_outbits & DIRECTION_MASK);
+  trigger_pulse(out_bits & STEP_MASK);
 
   busy = true;
-  sei(); // Re-enable interrupts to allow Stepper Port Reset Interrupt to fire on-time. 
+  
          // NOTE: The remaining code in this ISR will finish before returning to main program.
     
   // If there is no step segment, attempt to pop one from the stepper buffer
@@ -314,13 +313,13 @@ ISR(TIMER1_COMPA_vect)
       // Initialize new step segment and load number of steps to execute
       st.exec_segment = &segment_buffer[segment_buffer_tail];
 
-      #ifndef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
-        // With AMASS is disabled, set timer prescaler for segments with slow step frequencies (< 250Hz).
-        TCCR1B = (TCCR1B & ~(0x07<<CS10)) | (st.exec_segment->prescaler<<CS10);
-      #endif
-
       // Initialize step segment timing per step and load number of steps to execute.
-      OCR1A = st.exec_segment->cycles_per_tick;
+      PIT_TCTRL0 &= ~TEN; // Stop the timer 
+      PIT_LDVAL0 = st.exec_segment->cycles_per_tick; // Load the new value
+      PIT_TCTRL0 |= TEN; // Restart the timer
+
+
+
       st.step_count = st.exec_segment->n_step; // NOTE: Can sometimes be zero when moving slow.
       // If the new segment starts a new planner block, initialize stepper variables and counters.
       // NOTE: When the segment data index changes, this indicates a new planner block.
@@ -417,26 +416,35 @@ ISR(TIMER1_COMPA_vect)
    cause issues at high step rates if another high frequency asynchronous interrupt is 
    added to Grbl.
 */
-// This interrupt is enabled by ISR_TIMER1_COMPAREA when it sets the motor port bits to execute
-// a step. This ISR resets the motor port after a short period (settings.pulse_microseconds) 
-// completing one step cycle.
-ISR(TIMER0_OVF_vect)
-{
-  // Reset stepping pins (leave the direction pins)
-  STEP_PORT = (STEP_PORT & ~STEP_MASK) | (step_port_invert_mask & STEP_MASK); 
-  TCCR0B = 0; // Disable Timer0 to prevent re-entering this interrupt when it's not needed. 
-}
+
+inline void trigger_pulse(uint32_t active){
+  // Hand PIT1 the bit mask containing the step pins to toggle and enable it. In the case of stepper drivers
+  // that require a delay between setting direction pins and step pins (eg. DRV8825 - 650 ns), the PIT1 interrupt
+  // triggers once to set the pins active (per invert mask) and then resets itself and fires again to clear them.
+  // Otherwise, we toggle the bits here and pit1 fires once, clearing them.
+  pit1_state.active_bits = active;  
 #ifdef STEP_PULSE_DELAY
-  // This interrupt is used only when STEP_PULSE_DELAY is enabled. Here, the step pulse is
-  // initiated after the STEP_PULSE_DELAY time period has elapsed. The ISR TIMER2_OVF interrupt
-  // will then trigger after the appropriate settings.pulse_microseconds, as in normal operation.
-  // The new timing between direction, step pulse, and step complete events are setup in the
-  // st_wake_up() routine.
-  ISR(TIMER0_COMPA_vect) 
-  { 
-    STEP_PORT = st.step_bits; // Begin step pulse.
-  }
+  pit1_state.step_interrupt_status = PULSE_SET;
+  PIT_LDVAL1 = STEP_PULSE_DELAY * TICKS_PER_MICROSECOND;
+#else
+  STEP_PORT(TOR) = active;
+  PIT_LDVAL1 = pit1_state.pulse_length;
 #endif
+  PIT_TCTRL1 |= TEN;
+}
+
+void pit1_isr(void){
+  PIT_TFLG1 = 1;
+  PIT_TCTRL1 &= ~TEN;
+  STEP_PORT(TOR) = pit1_state.active_bits;
+#ifdef STEP_PULSE_DELAY
+  if(pit1_state.step_interrupt_status == PULSE_SET){
+    pit1_state.step_interrupt_status = PULSE_RESET;
+    PIT_LDVAL1 = pit1_state.pulse_length;
+    PIT_TCTRL1 |= TEN;  
+  }
+  #endif
+}
 
 
 // Generates the step and direction port invert masks used in the Stepper Interrupt Driver.
@@ -471,8 +479,9 @@ void st_reset()
   st_generate_step_dir_invert_masks();
       
   // Initialize step and direction port pins.
-  STEP_PORT = (STEP_PORT & ~STEP_MASK) | step_port_invert_mask;
-  DIRECTION_PORT = (DIRECTION_PORT & ~DIRECTION_MASK) | dir_port_invert_mask;
+  STEP_PORT(DOR) = (STEP_PORT(DOR) & ~STEP_MASK) | step_port_invert_mask;
+  DIRECTION_PORT(DOR) = (DIRECTION_PORT(DOR) & ~DIRECTION_MASK) | dir_port_invert_mask;
+
 }
 
 
@@ -484,22 +493,27 @@ void stepper_init()
   STEPPERS_DISABLE_DDR |= 1<<STEPPERS_DISABLE_BIT;
   DIRECTION_DDR |= DIRECTION_MASK;
 
-  // Configure Timer 1: Stepper Driver Interrupt
-  TCCR1B &= ~(1<<WGM13); // waveform generation = 0100 = CTC
-  TCCR1B |=  (1<<WGM12);
-  TCCR1A &= ~((1<<WGM11) | (1<<WGM10)); 
-  TCCR1A &= ~((1<<COM1A1) | (1<<COM1A0) | (1<<COM1B1) | (1<<COM1B0)); // Disconnect OC1 output
-  // TCCR1B = (TCCR1B & ~((1<<CS12) | (1<<CS11))) | (1<<CS10); // Set in st_go_idle().
-  // TIMSK1 &= ~(1<<OCIE1A);  // Set in st_go_idle().
+  STEP_X_CTRL = STANDARD_OUTPUT;
+  STEP_Y_CTRL = STANDARD_OUTPUT;
+  STEP_Z_CTRL = STANDARD_OUTPUT;
+  DIR_X_CTRL = STANDARD_OUTPUT;
+  DIR_Y_CTRL = STANDARD_OUTPUT;
+  DIR_Z_CTRL = STANDARD_OUTPUT;
+  STEPPERS_DISABLE_CTRL = STANDARD_OUTPUT;
+
+  SIM_SCGC6 |= SIM_SCGC6_PIT;  //Enable clock input
+  PIT_MCR = 0x00;              //Enable PIT, keep running in Debug Mode
+  // Configure PIT 0 - main interrupt timer
+  PIT_LDVAL0 = 48000000;  //Count Down from this number. 
+  // Default to to clock frequency - one full cycle per second.
   
-  // Configure Timer 0: Stepper Port Reset Interrupt
-  TIMSK0 &= ~((1<<OCIE0B) | (1<<OCIE0A) | (1<<TOIE0)); // Disconnect OC0 outputs and OVF interrupt.
-  TCCR0A = 0; // Normal operation
-  TCCR0B = 0; // Disable Timer0 until needed
-  TIMSK0 |= (1<<TOIE0); // Enable Timer0 overflow interrupt
-  #ifdef STEP_PULSE_DELAY
-    TIMSK0 |= (1<<OCIE0A); // Enable Timer0 Compare Match A interrupt
-  #endif
+  PIT_TCTRL0 = TEN; // Keep it running at a reasonable speed, but not interrupting 
+  // Configure PIT 1 - reset timer
+  PIT_TCTRL1 = TIE;  //enable interrupts
+  
+  NVIC_ENABLE_IRQ(IRQ_PIT_CH0);
+  NVIC_ENABLE_IRQ(IRQ_PIT_CH1);
+  NVIC_SET_PRIORITY(IRQ_PIT_CH0,1<<4);
 }
   
 
@@ -772,7 +786,7 @@ void st_prep_buffer()
     prep.dt_remainder = (n_steps_remaining - steps_remaining)*inv_rate; // Update segment partial step time
 
     // Compute CPU cycles per step for the prepped segment.
-    uint32_t cycles = ceil( (TICKS_PER_MICROSECOND*1000000*60)*inv_rate ); // (cycles/step)    
+    uint32_t cycles = ceil( (F_CPU*((uint32_t)60))*inv_rate ); // (cycles/step)
 
     #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING        
       // Compute step timing and multi-axis smoothing level.

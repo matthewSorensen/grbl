@@ -21,11 +21,11 @@
 
 #include "system.h"
 #include "settings.h"
-#include "eeprom.h"
 #include "protocol.h"
 #include "report.h"
 #include "limits.h"
 #include "stepper.h"
+#include <flexram.h>
 
 settings_t settings;
 

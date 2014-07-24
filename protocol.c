@@ -28,7 +28,7 @@
 #include "stepper.h"
 #include "motion_control.h"
 #include "report.h"
-
+#include <usb_serial.h>
 
 static char line[LINE_BUFFER_SIZE]; // Line to be executed. Zero-terminated.
 
@@ -100,7 +100,8 @@ void protocol_main_loop()
     // With a better processor, it would be very easy to pull this initial parsing out as a 
     // seperate task to be shared by the g-code parser and Grbl's system commands.
     
-    while((c = serial_read()) != SERIAL_NO_DATA) {
+    while(usb_serial_available()){
+      c = usb_serial_getchar();
       if ((c == '\n') || (c == '\r')) { // End of line reached
         line[char_counter] = 0; // Set string termination character.
         protocol_execute_line(line); // Line is complete. Execute it!

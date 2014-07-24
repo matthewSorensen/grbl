@@ -66,7 +66,7 @@
   #define DIR_Z_CTRL PORTC_PCR0
 
   // Define stepper driver enable/disable output pin.
-  #define STEPPERS_DISABLE_DDR    GPIOC_DDR
+  #define STEPPERS_DISABLE_DDR    GPIOC_PDDR
   #define STEPPERS_DISABLE_PORT(reg)   GPIOC_P##reg
   #define STEPPERS_DISABLE_BIT    2  // Teensy 3.x pin 22
   #define STEPPERS_DISABLE_MASK   (1<<STEPPERS_DISABLE_BIT)
