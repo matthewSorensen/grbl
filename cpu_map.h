@@ -88,11 +88,17 @@
  
 
   // Define spindle enable and spindle direction output pins.
-  // Note that this does have an FTM channel (ftm1 ch0), so it will support.
+  // Teensy 3.x pin 3
   #define SPINDLE_ENABLE_DDR    GPIOA_PDDR
   #define SPINDLE_ENABLE_PORT(reg)   GPIOA_P##reg
   #define SPINDLE_ENABLE_BIT    12
 
+  #ifdef VARIABLE_SPINDLE
+    #define SPINDLE_PWM_TIMER(reg) FTM1_##reg
+    #define SPINDLE_PWM_VALUE       FTM1_C0V
+  #endif
+
+  // Teensy 3.x pin 4
   #define SPINDLE_DIRECTION_DDR   GPIOA_PDDR
   #define SPINDLE_DIRECTION_PORT(reg)  GPIOA_P##reg 
   #define SPINDLE_DIRECTION_BIT   13
@@ -101,13 +107,13 @@
   #define SPINDLE_DIRECTION_CRL PORTA_PCR13
 
   // Define flood and mist coolant enable output pins.
-  // NOTE: Uno analog pins 4 and 5 are reserved for an i2c interface, and may be installed at
-  // a later date if flash and memory space allows.
+  // Teensy 3.x pin 5
   #define COOLANT_FLOOD_DDR   GPIOD_PDDR
   #define COOLANT_FLOOD_PORT(reg)  GPIOD_P##reg
   #define COOLANT_FLOOD_BIT   7
   #define COOLANT_FLOOD_CTRL PORTD_PCR7
   #ifdef ENABLE_M7 // Mist coolant disabled by default. See config.h to enable/disable.
+    // Teensy 3.x pin 6
     #define COOLANT_MIST_DDR   GPIOD_PDDR
     #define COOLANT_MIST_PORT(reg)  GPIOD_P##reg
     #define COOLANT_MIST_BIT   4

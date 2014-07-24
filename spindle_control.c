@@ -24,21 +24,33 @@
 #include "protocol.h"
 #include "gcode.h"
 
+#define DEFAULT_FTM_MOD (49152 - 1)
 
 void spindle_init()
 {    
-  SPINDLE_ENABLE_CTRL = STANDARD_OUTPUT;
   SPINDLE_DIRECTION_CRL = STANDARD_OUTPUT;
-
-  SPINDLE_ENABLE_DDR |=  (1<<SPINDLE_ENABLE_BIT); // Configure as output pin
   SPINDLE_DIRECTION_DDR |= (1<<SPINDLE_DIRECTION_BIT); // Configure as output pin
+
+  #ifdef VARIABLE_SPINDLE
+    SPINDLE_PWM_TIMER(MOD) = DEFAULT_FTM_MOD;
+    SPINDLE_PWM_TIMER(SC)  = 0 | FTM_SC_CLKS(1) | FTM_SC_PS(0);
+    SPINDLE_ENABLE_CTRL = PORT_PCR_MUX(3) | PORT_PCR_DSE | PORT_PCR_SRE;  
+  #else
+    SPINDLE_ENABLE_CTRL = STANDARD_OUTPUT;
+    SPINDLE_ENABLE_DDR |=  (1<<SPINDLE_ENABLE_BIT); // Configure as output pin
+  #endif
+
   spindle_stop();
 }
 
 
 void spindle_stop()
 {
-  SPINDLE_ENABLE_PORT(COR) = (1 << SPINDLE_ENABLE_BIT);
+  #ifdef VARIABLE_SPINDLE
+    SPINDLE_PWM_VALUE = 0;
+  #else
+    SPINDLE_ENABLE_PORT(COR) = (1 << SPINDLE_ENABLE_BIT);
+  #endif
 }
 
 
@@ -59,7 +71,16 @@ void spindle_run(uint8_t direction, float rpm)
     } else {
       SPINDLE_DIRECTION_PORT(SOR) = (1<<SPINDLE_DIRECTION_BIT);
     }
-
-    SPINDLE_ENABLE_PORT(SOR) = (1<<SPINDLE_ENABLE_BIT);
+    
+    #ifdef VARIABLE_SPINDLE
+      #define SPINDLE_RPM_RANGE (SPINDLE_MAX_RPM-SPINDLE_MIN_RPM)
+      rpm -= SPINDLE_MIN_RPM;
+      if ( rpm > SPINDLE_RPM_RANGE ) { rpm = SPINDLE_RPM_RANGE; }
+      current= floor( rpm*(1023.0/SPINDLE_RPM_RANGE) + 0.5);
+      SPINDLE_PWM_VALUE = ((uint32_t) current * (uint32_t)(FTM1_MOD + 1)) >> 10;
+      SPINDLE_PWM_TIMER(SC) = 0 | FTM_SC_CLKS(1) | FTM_SC_PS(0);
+    #else
+      SPINDLE_ENABLE_PORT(SOR) = (1<<SPINDLE_ENABLE_BIT);
+    #endif
   }
 }
