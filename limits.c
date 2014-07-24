@@ -34,33 +34,29 @@
 
 void limits_init() 
 {
+  uint32_t config_reg = MUX_GPIO;
   LIMIT_DDR &= ~(LIMIT_MASK); // Set as input pins
 
   if (bit_istrue(settings.flags,BITFLAG_INVERT_LIMIT_PINS)) {
-    LIMIT_PORT &= ~(LIMIT_MASK); // Normal low operation. Requires external pull-down.
+    config_reg = PULL_DOWN; // Enable internal pull-down resistors. Normal low operation.
   } else {
-    LIMIT_PORT |= (LIMIT_MASK);  // Enable internal pull-up resistors. Normal high operation.
+    config_reg = PULL_UP; // Enable internal pull-up resistors. Normal high operation.
   }
 
   if (bit_istrue(settings.flags,BITFLAG_HARD_LIMIT_ENABLE)) {
-    LIMIT_PCMSK |= LIMIT_MASK; // Enable specific pins of the Pin Change Interrupt
-    PCICR |= (1 << LIMIT_INT); // Enable Pin Change Interrupt
-  } else {
-    limits_disable(); 
+    config_reg = IRQC_EITHER_EDGE; // Enable interrupts
   }
-  
-  #ifdef ENABLE_SOFTWARE_DEBOUNCE
-    MCUSR &= ~(1<<WDRF);
-    WDTCSR |= (1<<WDCE) | (1<<WDE);
-    WDTCSR = (1<<WDP0); // Set time-out at ~32msec.
-  #endif
+  LIMIT_X_CTRL = config_reg;
+  LIMIT_Y_CTRL = config_reg;
+  LIMIT_Z_CTRL = config_reg;
 }
 
 
 void limits_disable()
 {
-  LIMIT_PCMSK &= ~LIMIT_MASK;  // Disable specific pins of the Pin Change Interrupt
-  PCICR &= ~(1 << LIMIT_INT);  // Disable Pin Change Interrupt
+   LIMIT_X_CTRL &= ~IRQC_MASK;
+   LIMIT_Y_CTRL &= ~IRQC_MASK;
+   LIMIT_Z_CTRL &= ~IRQC_MASK;
 }
 
 
@@ -75,40 +71,32 @@ void limits_disable()
 // homing cycles and will not respond correctly. Upon user request or need, there may be a
 // special pinout for an e-stop, but it is generally recommended to just directly connect
 // your e-stop switch to the Arduino reset pin, since it is the most correct way to do this.
-#ifndef ENABLE_SOFTWARE_DEBOUNCE
-  ISR(LIMIT_INT_vect) // DEFAULT: Limit pin change interrupt process. 
-  {
+
+void portb_isr(void){
+  if(PORTB_ISFR & LIMIT_MASK){
     // Ignore limit switches if already in an alarm state or in-process of executing an alarm.
     // When in the alarm state, Grbl should have been reset or will force a reset, so any pending 
     // moves in the planner and serial buffers are all cleared and newly sent blocks will be 
     // locked out until a homing cycle or a kill lock command. Allows the user to disable the hard
     // limit setting if their limits are constantly triggering after a reset and move their axes.
+    
+    // We don't care about which pin actually did anything, just that something happened.
+    // Seems pointless, but the write resets the flag
+    if(LIMIT_X_CTRL & ISF) LIMIT_X_CTRL |= ISF;
+    if(LIMIT_Y_CTRL & ISF) LIMIT_Y_CTRL |= ISF;
+    if(LIMIT_Z_CTRL & ISF) LIMIT_Z_CTRL |= ISF;
+
     if (sys.state != STATE_ALARM) { 
       if (bit_isfalse(sys.execute,EXEC_ALARM)) {
-        mc_reset(); // Initiate system kill.
-        bit_true_atomic(sys.execute, (EXEC_ALARM | EXEC_CRIT_EVENT)); // Indicate hard limit critical event
+	mc_reset(); // Initiate system kill.
+	bit_true_atomic(sys.execute, (EXEC_ALARM | EXEC_CRIT_EVENT)); // Indicate hard limit critical event
       }
     }
-  }  
-#else // OPTIONAL: Software debounce limit pin routine.
-  // Upon limit pin change, enable watchdog timer to create a short delay. 
-  ISR(LIMIT_INT_vect) { if (!(WDTCSR & (1<<WDIE))) { WDTCSR |= (1<<WDIE); } }
-  ISR(WDT_vect) // Watchdog timer ISR
-  {
-    WDTCSR &= ~(1<<WDIE); // Disable watchdog timer. 
-    if (sys.state != STATE_ALARM) {  // Ignore if already in alarm state. 
-      if (bit_isfalse(sys.execute,EXEC_ALARM)) {
-        uint8_t bits = LIMIT_PIN;
-        // Check limit pin state. 
-        if (bit_istrue(settings.flags,BITFLAG_INVERT_LIMIT_PINS)) { bits ^= LIMIT_MASK; }
-        if (bits & LIMIT_MASK) {
-          mc_reset(); // Initiate system kill.
-          bit_true_atomic(sys.execute, (EXEC_ALARM | EXEC_CRIT_EVENT)); // Indicate hard limit critical event
-        }
-      }  
-    }
   }
-#endif
+  if(PORTB_ISFR & PINOUT_MASK){
+    system_io_isr();
+  }
+}  
 
 
 // Homes the specified cycle axes, sets the machine position, and performs a pull-off motion after
@@ -184,7 +172,7 @@ void limits_go_home(uint8_t cycle_mask)
     st_wake_up(); // Initiate motion
     do {
       // Check limit state. Lock out cycle axes when they change.
-      limit_state = LIMIT_PIN;
+      limit_state = LIMIT_PORT(DOR);
       if (invert_pin) { limit_state ^= LIMIT_MASK; }
       for (idx=0; idx<N_AXIS; idx++) {
         if (axislock & step_pin[idx]) {
@@ -256,7 +244,7 @@ void limits_go_home(uint8_t cycle_mask)
   
   // Set system state to homing before returning. 
   sys.state = STATE_HOMING; 
-}
+ }
 
 
 // Performs a soft limit check. Called from mc_line() only. Assumes the machine has been homed,
