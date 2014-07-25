@@ -300,11 +300,11 @@ void pit0_isr(void) {
   
   // Set the direction pins a couple of nanoseconds before we step the steppers
   DIRECTION_PORT(DOR) = (DIRECTION_PORT(DOR) & ~DIRECTION_MASK) | (st.dir_outbits & DIRECTION_MASK);
-  trigger_pulse(out_bits & STEP_MASK);
+  trigger_pulse(st.step_outbits);
 
   busy = true;
   
-         // NOTE: The remaining code in this ISR will finish before returning to main program.
+  // NOTE: The remaining code in this ISR will finish before returning to main program.
     
   // If there is no step segment, attempt to pop one from the stepper buffer
   if (st.exec_segment == NULL) {
