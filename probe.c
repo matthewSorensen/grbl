@@ -23,7 +23,7 @@
 #include "probe.h"
 
 // Inverts the probe pin state depending on user settings.
-uint8_t probe_invert_mask;
+io_mask_t probe_invert_mask;
 
 
 // Probe pin initialization routine.

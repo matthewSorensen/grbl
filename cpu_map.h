@@ -36,6 +36,10 @@
 //----------------------------------------------------------------------------------------
 #ifdef CPU_MAP_MK20
 
+  // Because we're on a 32-bit system, interfacing with the IO ports requires a full
+  // word for all bitmasks.
+  typedef uint32_t  io_mask_t;
+
   // Define step pulse output pins. NOTE: All step bit pins must be on the same port.
   #define STEP_DDR        GPIOC_PDDR
   #define STEP_PORT(reg)  GPIOC_P##reg

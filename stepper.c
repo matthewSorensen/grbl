@@ -57,7 +57,7 @@
 // discarded when entirely consumed and completed by the segment buffer. Also, AMASS alters this
 // data for its own use. 
 typedef struct {  
-  uint8_t direction_bits;
+  io_mask_t direction_bits;
   uint32_t steps[N_AXIS];
   uint32_t step_event_count;
 } st_block_t;
@@ -91,8 +91,8 @@ typedef struct {
   
   uint8_t execute_step;     // Flags step execution for each interrupt.
   uint8_t step_pulse_time;  // Step pulse reset time after step rise
-  uint8_t step_outbits;         // The next stepping-bits to be output
-  uint8_t dir_outbits;
+  io_mask_t step_outbits;         // The next stepping-bits to be output
+  io_mask_t dir_outbits;
   #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
     uint32_t steps[N_AXIS];
   #endif
@@ -110,8 +110,8 @@ static uint8_t segment_buffer_head;
 static uint8_t segment_next_head;
 
 // Step and direction port invert masks. 
-static uint8_t step_port_invert_mask;
-static uint8_t dir_port_invert_mask;
+static io_mask_t step_port_invert_mask;
+static io_mask_t dir_port_invert_mask;
 
 // Used to avoid ISR nesting of the "Stepper Driver Interrupt". Should never occur though.
 static volatile uint8_t busy;   
