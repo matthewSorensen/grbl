@@ -102,6 +102,16 @@ void protocol_main_loop()
     
     while(usb_serial_available()){
       c = usb_serial_getchar();
+      switch(c){
+      case CMD_STATUS_REPORT: bit_true_atomic(sys.execute, EXEC_STATUS_REPORT); continue; break; // Set as true
+      case CMD_CYCLE_START:   bit_true_atomic(sys.execute, EXEC_CYCLE_START); continue; break; // Set as true
+      case CMD_FEED_HOLD:     bit_true_atomic(sys.execute, EXEC_FEED_HOLD); continue; break; // Set as true
+      case CMD_RESET:         mc_reset(); continue; break; // Call motion control reset routine.
+      default:
+	break;
+      }
+
+
       if ((c == '\n') || (c == '\r')) { // End of line reached
         line[char_counter] = 0; // Set string termination character.
         protocol_execute_line(line); // Line is complete. Execute it!
