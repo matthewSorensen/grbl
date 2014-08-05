@@ -37,7 +37,7 @@ SIZE = $(COMPILER)/arm-none-eabi-size
 AS = $(COMPILER)/arm-none-eabi-as
 
 
-OBJECTS    = main.o motion_control.o gcode.o spindle_control.o coolant_control.o serial.o \
+OBJECTS    = main.o motion_control.o gcode.o spindle_control.o coolant_control.o \
              protocol.o stepper.o eeprom.o settings.o planner.o nuts_bolts.o limits.o \
              print.o probe.o report.o system.o atomics.o initialize_flexram.o
 

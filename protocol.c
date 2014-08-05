@@ -20,7 +20,6 @@
 */
 
 #include "system.h"
-#include "serial.h"
 #include "settings.h"
 #include "protocol.h"
 #include "gcode.h"
