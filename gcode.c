@@ -1,9 +1,8 @@
 /*
   gcode.c - rs274/ngc parser.
-  Part of Grbl
+  Part of Grbl v0.9
 
-  Copyright (c) 2011-2014 Sungeun K. Jeon
-  Copyright (c) 2009-2011 Simen Svale Skogsrud
+  Copyright (c) 2012-2014 Sungeun K. Jeon
   
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -18,6 +17,12 @@
   You should have received a copy of the GNU General Public License
   along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
 */
+/* 
+  This file is based on work from Grbl v0.8, distributed under the 
+  terms of the MIT-license. See COPYING for more details.  
+    Copyright (c) 2009-2011 Simen Svale Skogsrud
+    Copyright (c) 2011-2012 Sungeun K. Jeon
+*/  
 
 #include "system.h"
 #include "settings.h"
@@ -605,11 +610,13 @@ uint8_t gc_execute_line(char *line)
         case NON_MODAL_GO_HOME_0: 
           // [G28 Errors]: Cutter compensation is enabled. 
           // Retreive G28 go-home position data (in machine coordinates) from EEPROM
+          if (!axis_words) { axis_command = AXIS_COMMAND_NONE; } // Set to none if no intermediate motion.
           if (!settings_read_coord_data(SETTING_INDEX_G28,parameter_data)) { FAIL(STATUS_SETTING_READ_FAIL); }
           break;
         case NON_MODAL_GO_HOME_1:
           // [G30 Errors]: Cutter compensation is enabled. 
           // Retreive G30 go-home position data (in machine coordinates) from EEPROM
+          if (!axis_words) { axis_command = AXIS_COMMAND_NONE; } // Set to none if no intermediate motion.
           if (!settings_read_coord_data(SETTING_INDEX_G30,parameter_data)) { FAIL(STATUS_SETTING_READ_FAIL); }
           break;
         case NON_MODAL_SET_HOME_0: case NON_MODAL_SET_HOME_1:

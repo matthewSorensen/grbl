@@ -1,9 +1,8 @@
 /*
   settings.h - eeprom configuration handling 
-  Part of Grbl
+  Part of Grbl v0.9
 
-  Copyright (c) 2011-2014 Sungeun K. Jeon
-  Copyright (c) 2009-2011 Simen Svale Skogsrud
+  Copyright (c) 2012-2014 Sungeun K. Jeon
   
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -18,17 +17,23 @@
   You should have received a copy of the GNU General Public License
   along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
 */
+/* 
+  This file is based on work from Grbl v0.8, distributed under the 
+  terms of the MIT-license. See COPYING for more details.  
+    Copyright (c) 2009-2011 Simen Svale Skogsrud
+    Copyright (c) 2011-2012 Sungeun K. Jeon
+*/ 
 
 #ifndef settings_h
 #define settings_h
 
 
 #define GRBL_VERSION "0.9g"
-#define GRBL_VERSION_BUILD "20140804"
+#define GRBL_VERSION_BUILD "20140817"
 
 // Version of the EEPROM data. Will be used to migrate existing data from older versions of Grbl
 // when firmware is upgraded. Always stored in byte 0 of eeprom
-#define SETTINGS_VERSION 9
+#define SETTINGS_VERSION 9  // NOTE: Check settings_reset() when moving to next version.
 
 // Define bit flag masks for the boolean settings in settings.flag.
 #define BITFLAG_REPORT_INCHES      bit(0)
@@ -97,6 +102,12 @@ extern settings_t settings;
 
 // Initialize the configuration subsystem (load settings from EEPROM)
 void settings_init();
+
+// Helper functions to clear and restore EEPROM defaults
+void settings_restore_global_settings();
+void settings_clear_parameters();
+void settings_clear_startup_line();
+void settings_clear_build_info();
 
 // A helper method to set new settings from command line
 uint8_t settings_store_global_setting(uint8_t parameter, float value);

@@ -1,6 +1,6 @@
 /*
   system.c - Handles system level commands and real-time processes
-  Part of Grbl
+  Part of Grbl v0.9
 
   Copyright (c) 2014 Sungeun K. Jeon  
 
@@ -88,6 +88,7 @@ uint8_t system_execute_line(char *line)
     case 0 : report_grbl_help(); break;
     case '$' : // Prints Grbl settings
       if ( line[++char_counter] != 0 ) { return(STATUS_INVALID_STATEMENT); }
+      if ( sys.state & (STATE_CYCLE | STATE_HOLD) ) { return(STATUS_IDLE_ERROR); } // Block during cycle. Takes too long to print.
       else { report_grbl_settings(); }
       break;
     case 'G' : // Prints gcode parser state
